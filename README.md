@@ -1,61 +1,119 @@
-Install yum and Docker into EC2 machine
+# EC2 Setup: Install Docker, Configure Network, and Deploy Containers
 
+## Prerequisites
+- AWS EC2 Instance (Amazon Linux 2)
+- AWS CLI configured
+- Docker installed
+- AWS ECR repository access
+
+---
+
+## Install `yum` and Docker on EC2 Machine
+```bash
 sudo yum update -y
 sudo yum install -y docker
-sudo systemctl start docker // start
-sudo systemctl enable docker // enable 
-sudo systemctl status docker 
-sudo usermod -aG docker ec2-user // 
+sudo systemctl start docker  # Start Docker
+sudo systemctl enable docker  # Enable Docker
+sudo systemctl status docker  # Verify Docker status
+sudo usermod -aG docker ec2-user  # Add user to Docker group
 
-exit and login again into the machine
+# Exit and login again to apply group changes
+exit
+ssh -i <your-key.pem> ec2-user@<your-ec2-instance-ip>
+
+# Verify group assignment
 groups
-====
-Bridge Network 
+```
+
+---
+
+## Create a Bridge Network
+```bash
 docker network create --driver bridge --subnet 192.168.2.0/24 --gateway 192.168.2.1 my-bridgenetwork
+```
 
-Pull ECR images from mysql repo
+---
 
+## Pull MySQL Image from AWS ECR and Run Container
+```bash
 ecr_dbimage=141947217581.dkr.ecr.us-east-1.amazonaws.com/clo835-assignment1-db:mysql-latest
 
-
-Login and Password
+# Authenticate Docker with AWS ECR
 aws ecr get-login-password --region us-east-1 | docker login -u AWS $ecr_dbimage --password-stdin
 
-docker run -d -e MYSQL_ROOT_PASSWORD=pw --network my-bridgenetwork --name mysql-db $ecr_dbimage
+# Run MySQL container
+docker run -d \
+  -e MYSQL_ROOT_PASSWORD=pw \
+  --network my-bridgenetwork \
+  --name mysql-db \
+  $ecr_dbimage
+```
 
-docker inspect <container_id>
-docker inspect de3a09026b53fd03c1d8c3e16340e8e553f5b67083893c94a689c583e20665a1
+### Verify Container Details
+```bash
+docker inspect mysql-db
+```
 
-#Database connection and Show database
+---
+
+## Database Connection and Verification
+```bash
+# Access MySQL container
 docker exec -it mysql-db /bin/bash
+
+# Connect to MySQL and show databases
 mysql -uroot -ppw -e "SHOW DATABASES;"
+```
 
-Exit Sql
-
-// Ip FROM container inspect
-export DBHOST=192.168.2.2                 
+### Export Environment Variables
+```bash
+export DBHOST=192.168.2.2  # IP obtained from `docker inspect`
 export DBPORT=3306
 export DBUSER=root
 export DATABASE=employees
 export DBPWD=pw
+```
 
-Pull Image From WebApp Repo
+---
+
+## Pull Web App Image from AWS ECR and Deploy Containers
+```bash
 ecr_appimage=141947217581.dkr.ecr.us-east-1.amazonaws.com/clo835-assignment1-app:app-latest
 
+# Authenticate Docker with AWS ECR
 aws ecr get-login-password --region us-east-1 | docker login -u AWS $ecr_appimage --password-stdin
 
-#running containers in detach mode for 
-docker run -d -p 8081:8080 -e DBHOST=$DBHOST -e DBPORT=$DBPORT -e DBUSER=$DBUSER -e DATABASE=$DATABASE -e DBPWD=$DBPWD -e APP_COLOR=blue --network my-bridgenetwork --name blue_app $ecr_appimage
+# Deploy multiple web app containers in different colors
+docker run -d -p 8081:8080 \
+  -e DBHOST=$DBHOST -e DBPORT=$DBPORT -e DBUSER=$DBUSER \
+  -e DATABASE=$DATABASE -e DBPWD=$DBPWD -e APP_COLOR=blue \
+  --network my-bridgenetwork --name blue_app $ecr_appimage
 
-docker run -d -p 8082:8080 -e DBHOST=$DBHOST -e DBPORT=$DBPORT -e DBUSER=$DBUSER -e DATABASE=$DATABASE -e DBPWD=$DBPWD -e APP_COLOR=pink --network my-bridgenetwork --name pink_app $ecr_appimage
+docker run -d -p 8082:8080 \
+  -e DBHOST=$DBHOST -e DBPORT=$DBPORT -e DBUSER=$DBUSER \
+  -e DATABASE=$DATABASE -e DBPWD=$DBPWD -e APP_COLOR=pink \
+  --network my-bridgenetwork --name pink_app $ecr_appimage
 
-docker run -d -p 8083:8080 -e DBHOST=$DBHOST -e DBPORT=$DBPORT -e DBUSER=$DBUSER -e DATABASE=$DATABASE -e DBPWD=$DBPWD -e APP_COLOR=lime --network my-bridgenetwork --name lime_app $ecr_appimage
+docker run -d -p 8083:8080 \
+  -e DBHOST=$DBHOST -e DBPORT=$DBPORT -e DBUSER=$DBUSER \
+  -e DATABASE=$DATABASE -e DBPWD=$DBPWD -e APP_COLOR=lime \
+  --network my-bridgenetwork --name lime_app $ecr_appimage
+```
 
-Containers can ping each other using their host names. For example, the following should work from inside the blue container: ping pink ping lime
-docker exec -it <container-name> /bin/bash
-//Execute for every container app
+---
+
+## Verify Container Communication
+```bash
+# Access blue_app container
 docker exec -it blue_app /bin/bash
 
-#install ping
+# Install `ping` tool if not available
 apt-get update
 apt-get install iputils-ping -y
+
+# Ping other containers
+targets=(pink_app lime_app)
+for target in "${targets[@]}"; do
+  ping -c 4 $target
+done
+```
