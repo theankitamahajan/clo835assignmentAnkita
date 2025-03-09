@@ -39,16 +39,18 @@ jobs:
     - name: Build and tag MySQL Docker Image
       run: |
         docker build -t my_db -f Dockerfile_mysql .
-        docker tag my_db:latest $ECR_REGISTRY/$MYSQL_REPOSITORY:$MYSQL_IMAGE_TAG
+        docker tag my_db:latest $ECR_REGISTRY/$MYSQL_REPOSITORY:$MYSQL_IMAGE_TAG  # Tag as 'latest'
+        docker tag my_db:latest $ECR_REGISTRY/$MYSQL_REPOSITORY:v1  # Tag as 'v1'
 
     # Step 5: Build and tag the Application Docker image
     - name: Build and tag App Docker Image
       run: |
         docker build -t my_app -f Dockerfile .
-        docker tag my_app:latest $ECR_REGISTRY/$APP_REPOSITORY:$APP_IMAGE_TAG
+        docker tag my_app:latest $ECR_REGISTRY/$APP_REPOSITORY:$APP_IMAGE_TAG  # Tag as 'web1-latest'
 
     # Step 6: Push Docker images to ECR
     - name: Push Docker Images to ECR
       run: |
-        docker push $ECR_REGISTRY/$MYSQL_REPOSITORY:$MYSQL_IMAGE_TAG
-        docker push $ECR_REGISTRY/$APP_REPOSITORY:$APP_IMAGE_TAG
+        docker push $ECR_REGISTRY/$MYSQL_REPOSITORY:$MYSQL_IMAGE_TAG  # Push 'latest'
+        docker push $ECR_REGISTRY/$MYSQL_REPOSITORY:v1  # Push 'v1'
+        docker push $ECR_REGISTRY/$APP_REPOSITORY:$APP_IMAGE_TAG  # Push 'web1-latest'
