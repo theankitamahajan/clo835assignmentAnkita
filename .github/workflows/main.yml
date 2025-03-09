@@ -41,7 +41,7 @@ jobs:
     - name: Build and tag Web App 1 Docker Image
       run: |
         docker build -t web_app1 -f Dockerfile_web1 .
-        docker tag web_app1:latest2 $ECR_REGISTRY/$WEB_APP1_REPOSITORY:$WEB_APP1_IMAGE_TAG
+        docker tag web_app1:latest $ECR_REGISTRY/$WEB_APP1_REPOSITORY:$WEB_APP1_IMAGE_TAG
 
     # Step 5: Build and tag the second web app Docker image
     - name: Build and tag Web App 2 Docker Image
