@@ -6,43 +6,51 @@ on:
 
 jobs:
   build:
-    name: Build and Push Images
+    name: Build and Push Web App Images
     runs-on: ubuntu-latest
 
     steps:
+    # Step 1: Check out the repository code
     - name: Check out code
       uses: actions/checkout@v2
 
+    # Step 2: Login to Amazon ECR
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
       with:
         mask-password: true
+        registry-type: private
+        skip-logout: false
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
         AWS_REGION: us-east-1
 
+    # Step 3: Set environment variables for repository names
     - name: Set environment variables
       run: |
         echo "ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}" >> $GITHUB_ENV
-        echo "MYSQL_REPOSITORY=sql-database-repo" >> $GITHUB_ENV
-        echo "APP_REPOSITORY=application-repo" >> $GITHUB_ENV
-        echo "MYSQL_IMAGE_TAG=latest" >> $GITHUB_ENV
-        echo "APP_IMAGE_TAG=latest" >> $GITHUB_ENV
+        echo "WEB_APP1_REPOSITORY=application-repo" >> $GITHUB_ENV   # First web app image
+        echo "WEB_APP2_REPOSITORY=sql-database-repo" >> $GITHUB_ENV  # Second web app image (repurposing existing repo)
+        echo "WEB_APP1_IMAGE_TAG=web1-latest" >> $GITHUB_ENV
+        echo "WEB_APP2_IMAGE_TAG=web2-latest" >> $GITHUB_ENV
 
-    - name: Build and tag MySQL Docker Image
+    # Step 4: Build and tag the first web app Docker image
+    - name: Build and tag Web App 1 Docker Image
       run: |
-        docker build -t my_db -f Dockerfile_mysql .
-        docker tag my_db:latest $ECR_REGISTRY/$MYSQL_REPOSITORY:$MYSQL_IMAGE_TAG
+        docker build -t web_app1 -f Dockerfile_web1 .
+        docker tag web_app1:latest $ECR_REGISTRY/$WEB_APP1_REPOSITORY:$WEB_APP1_IMAGE_TAG
 
-    - name: Build and tag App Docker Image
+    # Step 5: Build and tag the second web app Docker image
+    - name: Build and tag Web App 2 Docker Image
       run: |
-        docker build -t my_app -f Dockerfile .
-        docker tag my_app:latest $ECR_REGISTRY/$APP_REPOSITORY:$APP_IMAGE_TAG
+        docker build -t web_app2 -f Dockerfile_web2 .
+        docker tag web_app2:latest $ECR_REGISTRY/$WEB_APP2_REPOSITORY:$WEB_APP2_IMAGE_TAG
 
-    - name: Push Docker Images to ECR
+    # Step 6: Push both web app Docker images to Amazon ECR
+    - name: Push Web App Docker Images to ECR
       run: |
-        docker push $ECR_REGISTRY/$MYSQL_REPOSITORY:$MYSQL_IMAGE_TAG
-        docker push $ECR_REGISTRY/$APP_REPOSITORY:$APP_IMAGE_TAG
+        docker push $ECR_REGISTRY/$WEB_APP1_REPOSITORY:$WEB_APP1_IMAGE_TAG
+        docker push $ECR_REGISTRY/$WEB_APP2_REPOSITORY:$WEB_APP2_IMAGE_TAG
