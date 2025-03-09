@@ -33,24 +33,30 @@ jobs:
         echo "MYSQL_REPOSITORY=sql-database-repo" >> $GITHUB_ENV
         echo "APP_REPOSITORY=application-repo" >> $GITHUB_ENV
         echo "MYSQL_IMAGE_TAG=latest" >> $GITHUB_ENV
-        echo "APP_IMAGE_TAG=web1-latest" >> $GITHUB_ENV  # Use the correct tag for the application image
+        echo "APP_IMAGE_TAG=web1-latest" >> $GITHUB_ENV
+        echo "BUILD_VERSION=v1" >> $GITHUB_ENV  # Fixed versioning
+
+        # If you want an auto-incremented version, use the below line instead
+        # echo "BUILD_VERSION=$(date +v%Y%m%d%H%M%S)" >> $GITHUB_ENV  # Dynamic timestamp versioning
 
     # Step 4: Build and tag the MySQL Docker image
     - name: Build and tag MySQL Docker Image
       run: |
         docker build -t my_db -f Dockerfile_mysql .
-        docker tag my_db:latest $ECR_REGISTRY/$MYSQL_REPOSITORY:$MYSQL_IMAGE_TAG  # Tag as 'latest'
-        docker tag my_db:latest $ECR_REGISTRY/$MYSQL_REPOSITORY:v1  # Tag as 'v1'
+        docker tag my_db:latest $ECR_REGISTRY/$MYSQL_REPOSITORY:$MYSQL_IMAGE_TAG  # 'latest'
+        docker tag my_db:latest $ECR_REGISTRY/$MYSQL_REPOSITORY:$BUILD_VERSION  # 'v1' or dynamic version
 
     # Step 5: Build and tag the Application Docker image
     - name: Build and tag App Docker Image
       run: |
         docker build -t my_app -f Dockerfile .
-        docker tag my_app:latest $ECR_REGISTRY/$APP_REPOSITORY:$APP_IMAGE_TAG  # Tag as 'web1-latest'
+        docker tag my_app:latest $ECR_REGISTRY/$APP_REPOSITORY:$APP_IMAGE_TAG  # 'web1-latest'
+        docker tag my_app:latest $ECR_REGISTRY/$APP_REPOSITORY:$BUILD_VERSION  # 'v1' or dynamic version
 
     # Step 6: Push Docker images to ECR
     - name: Push Docker Images to ECR
       run: |
         docker push $ECR_REGISTRY/$MYSQL_REPOSITORY:$MYSQL_IMAGE_TAG  # Push 'latest'
-        docker push $ECR_REGISTRY/$MYSQL_REPOSITORY:v1  # Push 'v1'
+        docker push $ECR_REGISTRY/$MYSQL_REPOSITORY:$BUILD_VERSION  # Push 'v1' or dynamic version
         docker push $ECR_REGISTRY/$APP_REPOSITORY:$APP_IMAGE_TAG  # Push 'web1-latest'
+        docker push $ECR_REGISTRY/$APP_REPOSITORY:$BUILD_VERSION  # Push 'v1' or dynamic version
