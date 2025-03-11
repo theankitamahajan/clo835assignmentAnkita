@@ -1,52 +1,54 @@
-name: Deploy to ECR
+name: Build, Push Image to ECR for assignment 2
 
-on:
+on: 
   push:
-    branches: [main]
+    branches: [ main ]
+  workflow_dispatch:  # Enables manual trigger
 
 jobs:
   build:
-    name: Build and Push Images
+    name: Build Image
     runs-on: ubuntu-latest
 
     steps:
-    # Step 1: Check out the repository code
     - name: Check out code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
-    # Step 2: Login to Amazon ECR
+    - name: Setup AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+        aws-region: us-east-1
+
     - name: Login to Amazon ECR
       id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
+      uses: aws-actions/amazon-ecr-login@v2
+    
+    - name: Build and Push MySQL Image
       env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
-        AWS_REGION: us-east-1
-
-    # Step 3: Set environment variables for repository names
-    - name: Set environment variables
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: sql-database-repo
+        IMAGE_TAG: ${{ github.run_number }}
       run: |
-        echo "ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}" >> $GITHUB_ENV
-        echo "MYSQL_REPOSITORY=sql-database-repo" >> $GITHUB_ENV  # MySQL image repository
-        echo "APP_REPOSITORY=application-repo" >> $GITHUB_ENV  # Application image repository
-        echo "MYSQL_IMAGE_TAG=latest" >> $GITHUB_ENV
-        echo "APP_IMAGE_TAG=latest" >> $GITHUB_ENV
+        docker build -t "${ECR_REGISTRY}/${ECR_REPOSITORY}:v1" -f Dockerfile_mysql .
+        docker push "${ECR_REGISTRY}/${ECR_REPOSITORY}:v1"
 
-    # Step 4: Build and tag the MySQL Docker image
-    - name: Build and tag MySQL Docker Image
+    - name: Build and Push WebApp Image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: application-repo
+        IMAGE_TAG: ${{ github.run_number }}
+        ARG IMAGE_VERSION: "version1"
+        ENV IMAGE_VERSION: $IMAGE_VERSION
       run: |
-        docker build -t my_db -f Dockerfile_mysql .
-        docker tag my_db:latest $ECR_REGISTRY/$MYSQL_REPOSITORY:$MYSQL_IMAGE_TAG
+        echo "Version 1" > version.txt
+        docker build --no-cache -t "${ECR_REGISTRY}/${ECR_REPOSITORY}:v1" --build-arg VERSION=v1 -f Dockerfile .
 
-    # Step 5: Build and tag the application Docker image
-    - name: Build and tag App Docker Image
-      run: |
-        docker build -t my_app -f Dockerfile .
-        docker tag my_app:latest $ECR_REGISTRY/$APP_REPOSITORY:$APP_IMAGE_TAG
+        echo "Version 2" > version.txt
+        docker build --no-cache -t "${ECR_REGISTRY}/${ECR_REPOSITORY}:v2" --build-arg VERSION=v2 -f Dockerfile .
 
-    # Step 6: Push both Docker images (MySQL and application) to Amazon ECR
-    - name: Push Docker Images to ECR
-      run: |
-        docker push $ECR_REGISTRY/$MYSQL_REPOSITORY:$MYSQL_IMAGE_TAG
-        docker push $ECR_REGISTRY/$APP_REPOSITORY:$APP_IMAGE_TAG
+
+        docker push "${ECR_REGISTRY}/${ECR_REPOSITORY}:v1"
+        docker push "${ECR_REGISTRY}/${ECR_REPOSITORY}:v2"
